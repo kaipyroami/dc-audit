@@ -1,24 +1,32 @@
 /*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 
-*/
+ */
 package cmd
 
 import (
-	"os"
-
+	"bytes"
+	"fmt"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
 )
 
 // rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "dc-audit",
-	Short: "This application will scan a docker compose file and list the installed software.",
-	Long:  `This application will scan a docker compose file and recursively list the installed software including the pulled docker image.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
-}
+var (
+	urlString string
+
+	rootCmd = &cobra.Command{
+		Use:   "dc-audit",
+		Short: "This application will scan a docker compose file and list the installed software.",
+		Long:  `This application will scan a docker compose file and recursively list the installed software including the pulled docker image.`,
+		// Uncomment the following line if your bare application
+		// has an action associated with it:
+		// Run: func(cmd *cobra.Command, args []string) { },
+	}
+)
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -27,6 +35,39 @@ func Execute() {
 	if err != nil {
 		os.Exit(1)
 	}
+
+	dcUrl, err := url.Parse(urlString)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//fmt.Println(dcUrl.String())
+	/***************************************************/
+
+	resp, err := http.Get(dcUrl.String())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	composeText := buf.String()
+
+	defer resp.Body.Close()
+
+	//fmt.Println(composeText)
+
+	data := make(map[interface{}]interface{})
+
+	err2 := yaml.Unmarshal([]byte(composeText), &data)
+	if err2 != nil {
+		log.Fatal(err2)
+	}
+
+	for k, v := range data {
+		fmt.Printf("%s -> %d\n", k, v)
+	}
+
 }
 
 func init() {
@@ -38,5 +79,5 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().StringVar(&urlString, "url", "", "Compose file URL")
 }
